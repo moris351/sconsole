@@ -4,14 +4,38 @@
 <script>  
 window.addEventListener("load", function(evt) {
 
-    var output = document.getElementById("output");
+    var output = document.getElementById("output-list");
     var input = document.getElementById("input");
+    var stat = document.getElementById("stat");
     var ws;
-
+	var mn=0;
     var print = function(message) {
-        var d = document.createElement("div");
-        d.innerHTML = message;
-        output.appendChild(d);
+		var info = JSON.parse( message );
+		if( info.InfoType == 0){
+			ss="req="+info.Msg.Req+
+					"<br>success="+info.Msg.Success+
+					"<br>Failed="+info.Msg.Failed+
+					"<br>Missing="+(info.Msg.Req-info.Msg.Success-info.Msg.Failed);
+			stat.innerHTML=ss
+			return 
+		}else if (!(info.InfoType == 1)){
+			return
+		}
+
+		//ss="wired output"+ info.InfoType
+
+        var o = document.createElement("option");
+		mn++;
+		if(mn>30){
+			output.removeChild(output.childNodes[0]);
+			mn--;
+		}
+        o.innerHTML = "Url="+info.Msg.Url+
+				"; Title="+ 
+				info.Msg.Title+
+				"; Description="+
+				info.Msg.Description;
+        output.appendChild(o);
     };
 
     document.getElementById("open").onclick = function(evt) {
@@ -27,7 +51,7 @@ window.addEventListener("load", function(evt) {
             ws = null;
         }
         ws.onmessage = function(evt) {
-            print("RESPONSE: " + evt.data);
+            print( evt.data);
         }
         ws.onerror = function(evt) {
             print("ERROR: " + evt.data);
@@ -57,19 +81,24 @@ window.addEventListener("load", function(evt) {
 </head>
 <body>
 <table>
-<tr><td valign="top" width="50%">
+<tr><td valign="top" width="30%">
 <p>Click "Open" to create a connection to the server, 
 "Send" to send a message to the server and "Close" to close the connection. 
 You can change the message and send multiple times.
 <p>
+<div id="stat"></div>
 <form>
 <button id="open">Open</button>
 <button id="close">Close</button>
 <p><input id="input" type="text" value="Hello world!">
 <button id="send">Send</button>
 </form>
-</td><td valign="top" width="50%">
-<div id="output"></div>
+</td><td valign="top" width="70%">
+<div id="output">
+<select id="output-list" size=30 style="height: 100%;width: 100%;">
+  <option>Volvo</option>
+</select>
+</div>
 </td></tr></table>
 </body>
 </html>

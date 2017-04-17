@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -9,13 +10,14 @@ import (
 	"github.com/gorilla/websocket"
 	zmq "github.com/pebbe/zmq4"
 	_ "time"
+	info "github.com/moris351/scraper/info"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
 
 const (
-	receiverPort = ":5557"
-	senderPort   = ":5558"
+	logstatPort = ":5557"
+	cmdPort   = ":5558"
 )
 
 var upgrader = websocket.Upgrader{
@@ -46,8 +48,19 @@ func writer(c *websocket.Conn, zt *zmqTool) {
 		if err != nil {
 			log.Println("receiver.Recv err, ", err)
 		}
+
+		it, msg, err:= info.Unmarshal(s)
+		if it == info.Stat {
+			vs := msg.(*info.VisitStat)
+			log.Println("receive : ", vs)
+			
+		}else{
+			lg:=msg.(*info.VisitLog)
+			log.Println("receive : ", lg)
+		}
+
 		if len(s) > 0 {
-			log.Println(s)
+			//log.Println(s)
 			err := c.WriteMessage(websocket.TextMessage, []byte(s))
 			if err != nil {
 				log.Println("write:", err)
@@ -75,13 +88,14 @@ func home(w http.ResponseWriter, r *http.Request) {
 func newZmqTool() *zmqTool {
 	zt := new(zmqTool)
 	var err error
-	zt.receiver, err = zmq.NewSocket(zmq.PULL)
+	zt.receiver, err = zmq.NewSocket(zmq.SUB)
 	if err != nil {
 		log.Println("zmq NewSocket err,", err)
 		return nil
 	}
 	//defer sender.Close()
-	zt.receiver.Bind("tcp://*" + receiverPort)
+	zt.receiver.Connect("tcp://localhost" + logstatPort)
+	zt.receiver.SetSubscribe("")
 
 	zt.sender, err = zmq.NewSocket(zmq.PUSH)
 	//defer receiver.Close()
@@ -89,7 +103,8 @@ func newZmqTool() *zmqTool {
 		log.Println("zmq NewSocket err,", err)
 		return nil
 	}
-	zt.sender.Bind("tcp://*" + senderPort)
+	zt.sender.Bind("tcp://*" + cmdPort)
+	
 	return zt
 }
 
@@ -97,11 +112,22 @@ func (zt *zmqTool) close() {
 	zt.receiver.Close()
 	zt.sender.Close()
 }
-
+var (
+	VerTag string   
+	BuildTime string
+)
+var (
+		version		   = flag.Bool("version", false, "version info")
+)
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
-
+	fmt.Println("Version Tag: " + VerTag)
+	fmt.Println("Build Time: " + BuildTime)
+	if *version {
+		return
+	}
+	
 	zt := newZmqTool()
 	defer zt.close()
 
